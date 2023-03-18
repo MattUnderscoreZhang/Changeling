@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "changeling"
+version = "0.1.0"
+description = ""
+authors = ["Matt Zhang <set.stun@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+authors = [
+    {name = "Matt Zhang", email = "set.stun@gmail.com"},
+]
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "pytest>=7.2.2",
+]
+name = "changeling"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+
+[project.urls]
