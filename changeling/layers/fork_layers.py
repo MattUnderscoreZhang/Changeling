@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from typing import List
+from typing import Dict, List
 
 
 class SumInputLayer(nn.Module):
@@ -22,5 +22,16 @@ class ConcatInputLayer(nn.Module):
         return torch.cat(x, dim=1)
 
 
-# TODO: create SplitOutputLayer which takes a Dict[str, shape] init and a Tensor forward
-# splits Tensor into Dict[str, Tensor] according to shapes
+class SplitOutputLayer(nn.Module):
+    def __init__(self, out_features: Dict[str, int]):
+        super().__init__()
+        self.out_features = out_features
+
+    def forward(self, x: Tensor) -> Dict[str, Tensor]:
+        out_tensors = {}
+        start = 0
+        for name, out_features in self.out_features.items():
+            end = start + out_features
+            out_tensors[name] = x[:, start:end]
+            start = end
+        return out_tensors
