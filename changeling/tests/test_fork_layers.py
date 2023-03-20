@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from typing import Any, Dict
 
-from changeling.layers import SumInputLayer, ConcatInputLayer, SplitOutputLayer
+from changeling.core.layers import SumInputLayer, ConcatInputLayer, SplitOutputLayer
 
 
 @pytest.fixture(params=[1, 2])

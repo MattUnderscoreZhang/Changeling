@@ -3,7 +3,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from changeling.layers import Branch
+from changeling.core.branch import Branch
 
 
 @pytest.fixture(params=["linear", "conv2d"])
