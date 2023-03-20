@@ -63,11 +63,13 @@ class Teacher:
         train_loader, test_loader = lesson.get_dataloaders()
         return train_loader, test_loader
 
-    def teach(self, max_epochs: int = 1_000_000_000_000) -> bool:
+    def teach(self, max_epochs: int = -1) -> bool:
         lesson_n = 0
         train_loader, test_loader = self.prep_lesson(lesson_n)
 
         n_consecutive_epochs = 0
+        if max_epochs == -1:
+            max_epochs = int('inf')
         for epoch in range(max_epochs):
             print(f"Epoch {epoch} - ", end="")
             train_loss = self.train(train_loader)

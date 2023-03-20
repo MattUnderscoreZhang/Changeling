@@ -36,7 +36,7 @@ def get_dataloaders(
     return train_loader, test_loader
 
 
-def test_mnist():
+def main():
     transform = transforms.Compose([
         transforms.Resize((28, 28)),
         transforms.ToTensor(),
@@ -70,3 +70,7 @@ def test_mnist():
     ]
     teacher = Teacher(model, curriculum)
     assert teacher.teach(max_epochs=100)
+
+
+if __name__ == "__main__":
+    main()
