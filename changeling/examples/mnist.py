@@ -1,4 +1,4 @@
-from torch import nn
+from torch import nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import QMNIST
 import torchvision.transforms as transforms
@@ -9,15 +9,16 @@ from changeling.core.teacher import Teacher, Lesson
 
 class MNISTSubset(Dataset):
     def __init__(self, mnist_data: Dataset, labels_to_include: List[int]):
-        self.data = []
-        for img, label in mnist_data:
-            if label in labels_to_include:
-                self.data.append((img, label))
+        self.data = [
+            (img, label)
+            for img, label in mnist_data
+            if label in labels_to_include
+        ]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Tuple[Tensor, int]:
         return self.data[idx]
 
 
