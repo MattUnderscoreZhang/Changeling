@@ -50,7 +50,6 @@ def branch_data(request):
 def test_deactivate(branch_data: Dict):
     branch = branch_data["branch"]
     branch.deactivate()
-    assert all([not p.requires_grad for p in branch.parameters()])
     assert not branch.active
 
 
@@ -58,8 +57,20 @@ def test_activate(branch_data: Dict):
     branch = branch_data["branch"]
     branch.deactivate()
     branch.activate()
-    assert all([p.requires_grad for p in branch.parameters()])
     assert branch.active
+
+
+def test_freeze(branch_data: Dict):
+    branch = branch_data["branch"]
+    branch.freeze()
+    assert all([not p.requires_grad for p in branch.parameters()])
+
+
+def test_unfreeze(branch_data: Dict):
+    branch = branch_data["branch"]
+    branch.freeze()
+    branch.unfreeze()
+    assert all([p.requires_grad for p in branch.parameters()])
 
 
 def test_in_features(branch_data: Dict):

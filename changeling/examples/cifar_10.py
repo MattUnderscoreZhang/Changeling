@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 
 from changeling.core.branch import Branch
 from changeling.core.changeling import Changeling
-from changeling.core.layers import ConcatInputLayer, SumInputLayer
+from changeling.core.layers import ConcatInputLayer, MeanInputLayer
 from changeling.core.teacher import Teacher, Lesson
 
 
@@ -76,12 +76,12 @@ class MyModel(Changeling):
                 nn.MaxPool2d(2)
             ),
             "color_branch": Branch(
-                nn.Conv2d(1, 64, kernel_size=3, padding=1),
+                nn.Conv2d(3, 64, kernel_size=3, padding=1),
                 nn.ReLU(),
                 nn.MaxPool2d(2)
             ),
         }
-        self.sum_layer = SumInputLayer()
+        self.mean_layer = MeanInputLayer()
         self.hidden_layers = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -110,8 +110,8 @@ class MyModel(Changeling):
             for branch in x.keys()
             if self.input_branches[branch].active
         ]
-        sum_inputs = self.sum_layer(inputs)
-        hidden_out = self.hidden_layers(sum_inputs)
+        mean_inputs = self.mean_layer(inputs)
+        hidden_out = self.hidden_layers(mean_inputs)
         out_labels = [
             self.output_branches[i](hidden_out)
             if self.output_branches[i].active
@@ -123,9 +123,11 @@ class MyModel(Changeling):
     def prep_lesson(self, name: str) -> None:
         if name.startswith("Grayscale Input"):
             self.input_branches["gray_branch"].activate()
+            self.input_branches["gray_branch"].unfreeze()
             self.input_branches["color_branch"].deactivate()
         elif name.startswith("Dual Input"):
             self.input_branches["gray_branch"].activate()
+            self.input_branches["gray_branch"].freeze()
             self.input_branches["color_branch"].activate()
         elif name.startswith("Color Input"):
             self.input_branches["gray_branch"].deactivate()

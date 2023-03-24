@@ -16,16 +16,21 @@ class Branch(nn.Sequential):
 
         self.active = True
         self.activate()
+        self.unfreeze()
 
     def activate(self) -> None:
-        for param in self.parameters():
-            param.requires_grad = True
         self.active = True
 
     def deactivate(self) -> None:
+        self.active = False
+
+    def freeze(self) -> None:
         for param in self.parameters():
             param.requires_grad = False
-        self.active = False
+
+    def unfreeze(self) -> None:
+        for param in self.parameters():
+            param.requires_grad = True
 
     def _get_n_features(self, layer: nn.Module, in_or_out: str) -> int:
         if isinstance(layer, nn.Linear):
