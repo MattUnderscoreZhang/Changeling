@@ -1,14 +1,14 @@
-from torch import nn, Tensor
+from torch import cuda, nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import QMNIST
 import torchvision.transforms as transforms
-from typing import List, Tuple
 
+from changeling.core.changeling import Changeling
 from changeling.core.teacher import Teacher, Lesson
 
 
 class MNISTSubset(Dataset):
-    def __init__(self, mnist_data: Dataset, labels_to_include: List[int]):
+    def __init__(self, mnist_data: Dataset, labels_to_include: list[int]):
         self.data = [
             (img, label)
             for img, label in mnist_data
@@ -18,7 +18,7 @@ class MNISTSubset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx) -> Tuple[Tensor, int]:
+    def __getitem__(self, idx) -> tuple[Tensor, int]:
         return self.data[idx]
 
 
@@ -27,14 +27,51 @@ def get_dataloaders(
     mnist_test: Dataset,
     batch_size: int,
     n_labels: int,
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     max_labels = 10
     labels = list(range(max_labels))
     mnist_cur_train = MNISTSubset(mnist_train, labels[:n_labels])
     mnist_cur_test = MNISTSubset(mnist_test, labels[:n_labels])
-    train_loader = DataLoader(mnist_cur_train, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(mnist_cur_test, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(
+        mnist_cur_train,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4 if cuda.is_available() else 0,
+        pin_memory=cuda.is_available(),
+    )
+    test_loader = DataLoader(
+        mnist_cur_test,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4 if cuda.is_available() else 0,
+        pin_memory=cuda.is_available(),
+    )
     return train_loader, test_loader
+
+
+class MyModel(Changeling):
+    def __init__(self):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 6, 5),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(6, 16, 5),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Flatten(),
+            nn.Linear(256, 120),
+            nn.ReLU(),
+            nn.Linear(120, 84),
+            nn.ReLU(),
+            nn.Linear(84, 10)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.model(x)
+
+    def prep_lesson(self, name: str) -> None:
+        pass
 
 
 def main():
@@ -46,26 +83,14 @@ def main():
     mnist_train = QMNIST(root='./data', train=True, download=True, transform=transform)
     mnist_test = QMNIST(root='./data', train=False, download=True, transform=transform)
 
-    model = nn.Sequential(
-        nn.Conv2d(1, 6, 5),
-        nn.ReLU(),
-        nn.MaxPool2d(2, 2),
-        nn.Conv2d(6, 16, 5),
-        nn.ReLU(),
-        nn.MaxPool2d(2, 2),
-        nn.Flatten(),
-        nn.Linear(256, 120),
-        nn.ReLU(),
-        nn.Linear(120, 84),
-        nn.ReLU(),
-        nn.Linear(84, 10)
-    )
+    model = MyModel()
     curriculum = [
         Lesson(
             name=f"First {n} digits",
             get_dataloaders=lambda: get_dataloaders(
                 mnist_train, mnist_test, batch_size=128, n_labels=n
-            )
+            ),
+            accuracy_threshold=0.95,
         )
         for n in range(1, 11)
     ]

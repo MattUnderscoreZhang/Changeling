@@ -56,3 +56,6 @@ class Branch(nn.Sequential):
             if self.active
             else torch.zeros((x.shape[0], self.out_features))
         )
+
+
+# TODO: implement IdentityBranch

@@ -1,39 +1,46 @@
 from dataclasses import dataclass
 import torch
-from torch import nn, optim
+from torch import optim
 from torch.utils.data import DataLoader
-from typing import Callable, List, Tuple
+from typing import Callable
+
+from changeling.core.changeling import Changeling
 
 
 @dataclass
 class Lesson:
     name: str
-    get_dataloaders: Callable[[], Tuple[DataLoader, DataLoader]]
+    get_dataloaders: Callable[[], tuple[DataLoader, DataLoader]]
+    accuracy_threshold: float
 
 
-Curriculum = List[Lesson]
+Curriculum = list[Lesson]
 
 
 class Teacher:
     def __init__(
         self,
-        model: nn.Module,
+        model: Changeling,
         curriculum: Curriculum,
     ):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = model
         self.model.to(self.device)
         self.curriculum = curriculum
-        self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-        self.accuracy_threshold = 0.95
+        self.loss_function = torch.nn.CrossEntropyLoss()
         self.consecutive_epochs_threshold = 3
 
     def train(self, train_loader: DataLoader) -> float:
         self.model.train()
         running_loss = 0.0
         for inputs, labels in train_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            inputs = (
+                {k: v.to(self.device) for k, v in inputs.items()}
+                if type(inputs) == dict
+                else inputs.to(self.device)
+            )
+            labels = labels.to(self.device)
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             loss = self.loss_function(outputs, labels)
@@ -49,7 +56,12 @@ class Teacher:
         total = 0
         with torch.no_grad():
             for inputs, labels in test_loader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                inputs = (
+                    {k: v.to(self.device) for k, v in inputs.items()}
+                    if type(inputs) == dict
+                    else inputs.to(self.device)
+                )
+                labels = labels.to(self.device)
                 outputs = self.model(inputs)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
@@ -57,15 +69,17 @@ class Teacher:
 
         return correct / total
 
-    def prep_lesson(self, lesson_n: int) -> Tuple[DataLoader, DataLoader]:
+    def prep_lesson(self, lesson_n: int) -> tuple[DataLoader, DataLoader, float]:
         lesson = self.curriculum[lesson_n]
         print(f"Prepping lesson - {lesson.name}.")
         train_loader, test_loader = lesson.get_dataloaders()
-        return train_loader, test_loader
+        self.model.prep_lesson(lesson.name)
+        accuracy_threshold = lesson.accuracy_threshold
+        return train_loader, test_loader, accuracy_threshold
 
     def teach(self, max_epochs: int = -1) -> bool:
         lesson_n = 0
-        train_loader, test_loader = self.prep_lesson(lesson_n)
+        train_loader, test_loader, accuracy_threshold = self.prep_lesson(lesson_n)
 
         n_consecutive_epochs = 0
         if max_epochs == -1:
@@ -77,7 +91,7 @@ class Teacher:
             print(f"Train Loss: {train_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
             n_consecutive_epochs = (
                 n_consecutive_epochs + 1
-                if test_accuracy >= self.accuracy_threshold
+                if test_accuracy >= accuracy_threshold
                 else 0
             )
             if n_consecutive_epochs >= self.consecutive_epochs_threshold:
