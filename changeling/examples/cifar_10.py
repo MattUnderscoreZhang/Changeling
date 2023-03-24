@@ -1,5 +1,5 @@
 import torch
-from torch import cuda, nn, Tensor
+from torch import cuda, nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
@@ -103,6 +103,8 @@ class MyModel(Changeling):
             for i in range(10)
         }
         self.concat_layer = ConcatInputLayer()
+        self.softmax_layer = nn.Softmax(dim=1)
+        self.loss_function = nn.CrossEntropyLoss()
 
     def forward(self, x: dict[str, Tensor]) -> Tensor:
         inputs = [
@@ -118,7 +120,9 @@ class MyModel(Changeling):
             else torch.zeros(hidden_out.shape[0], 1)
             for i in range(10)
         ]
-        return self.concat_layer(out_labels)
+        concat_out = self.concat_layer(out_labels)
+        # return self.softmax_layer(concat_out)
+        return concat_out
 
     def prep_lesson(self, name: str) -> None:
         if name.startswith("Grayscale Input"):
@@ -140,6 +144,14 @@ class MyModel(Changeling):
             self.output_branches[i].deactivate()
         for i in labels:
             self.output_branches[i].activate()
+
+    def loss(self, outputs: Tensor, labels: Tensor) -> Tensor:
+        # get L2 sum of parameters
+        # L2 = sum([
+            # torch.sum(param ** 2)
+            # for param in self.parameters()
+        # ])
+        return self.loss_function(outputs, labels)
 
 
 def main():
@@ -178,7 +190,7 @@ def main():
             ),
             Lesson(
                 name=f"Dual Input - {labels}",
-                get_dataloaders=lambda: get_dataloaders(
+                get_dataloaders=lambda labels=labels: get_dataloaders(
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
@@ -186,13 +198,23 @@ def main():
             ),
             Lesson(
                 name=f"Color Input - {labels}",
-                get_dataloaders=lambda: get_dataloaders(
+                get_dataloaders=lambda labels=labels: get_dataloaders(
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                accuracy_threshold=0.9,
+                accuracy_threshold=0.8,
             ),
         ]
+    ] + [
+        Lesson(
+            name=f"Color Input - {labels}",
+            get_dataloaders=lambda labels=labels: get_dataloaders(
+                cifar_train, cifar_test, batch_size=128,
+                labels_to_include=labels,
+            ),
+            accuracy_threshold=0.9,
+        )
+        for labels in [list(range(0, 10))]
     ]
     teacher = Teacher(model, curriculum)
     assert teacher.teach(max_epochs=100)

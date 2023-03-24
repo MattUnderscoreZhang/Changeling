@@ -66,12 +66,16 @@ class MyModel(Changeling):
             nn.ReLU(),
             nn.Linear(84, 10)
         )
+        self.loss_function = nn.CrossEntropyLoss()
 
     def forward(self, x: Tensor) -> Tensor:
         return self.model(x)
 
     def prep_lesson(self, name: str) -> None:
         pass
+
+    def loss(self, outputs: Tensor, labels: Tensor) -> Tensor:
+        return self.loss_function(outputs, labels)
 
 
 def main():

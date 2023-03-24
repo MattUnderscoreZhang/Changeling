@@ -7,3 +7,6 @@ class Changeling(nn.Module):
 
     def prep_lesson(self, name: str) -> None:
         raise NotImplementedError
+
+    def loss(self, output: Tensor, labels: Tensor) -> Tensor:
+        raise NotImplementedError

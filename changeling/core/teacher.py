@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from termcolor import colored
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -29,6 +30,7 @@ class Teacher:
         self.curriculum = curriculum
         self.loss_function = torch.nn.CrossEntropyLoss()
         self.consecutive_epochs_threshold = 3
+        self.debug_print = True
 
     def train(self, train_loader: DataLoader) -> float:
         self.model.train()
@@ -63,17 +65,40 @@ class Teacher:
                 labels = labels.to(self.device)
                 outputs = self.model(inputs)
                 _, predicted = torch.max(outputs.data, 1)
+                if self.debug_print:
+                    self.print_predictions(outputs, labels)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
         return correct / total
+
+    def print_predictions(self, outputs, labels) -> None:
+        label = labels[0]
+        output_list = outputs[0].tolist()
+        prediction_correct = label == output_list.index(max(output_list))
+        output_string = (
+            colored('✓', 'green')
+            if prediction_correct
+            else colored('✗', 'red')
+        )
+        output_string += ' ['  # ]
+        for i, output in enumerate(output_list):
+            output_string += (
+                colored("{:.3f}".format(output), "cyan")
+                if i == label
+                else colored("{:.3f}".format(output), "blue")
+            )
+            if i < len(output_list) - 1:
+                output_string += ', '
+        output_string += ']'
+        print(output_string)
 
     def refresh_optimizer(self):
         self.optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
 
     def prep_lesson(self, lesson_n: int) -> tuple[DataLoader, DataLoader, float]:
         lesson = self.curriculum[lesson_n]
-        print(f"Prepping lesson - {lesson.name}.")
+        print(colored(f"Prepping lesson - {lesson.name}.", "yellow"))
         train_loader, test_loader = lesson.get_dataloaders()
         self.model.prep_lesson(lesson.name)
         accuracy_threshold = lesson.accuracy_threshold
@@ -88,7 +113,10 @@ class Teacher:
         if max_epochs == -1:
             max_epochs = int('inf')
         for epoch in range(max_epochs):
-            print(f"Epoch {epoch} - ", end="")
+            if self.debug_print:
+                print(f"Epoch {epoch}:")
+            else:
+                print(f"Epoch {epoch} - ", end="")
             train_loss = self.train(train_loader)
             test_accuracy = self.test(test_loader)
             print(f"Train Loss: {train_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
