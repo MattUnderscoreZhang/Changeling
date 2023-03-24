@@ -12,7 +12,7 @@ from changeling.core.changeling import Changeling
 class Lesson:
     name: str
     get_dataloaders: Callable[[], tuple[DataLoader, DataLoader]]
-    accuracy_threshold: float
+    go_to_next_lesson: Callable[[float, float], bool]
 
 
 Curriculum = list[Lesson]
@@ -96,20 +96,19 @@ class Teacher:
     def refresh_optimizer(self):
         self.optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
 
-    def prep_lesson(self, lesson_n: int) -> tuple[DataLoader, DataLoader, float]:
+    def prep_lesson(self, lesson_n: int) -> tuple[DataLoader, DataLoader, Callable]:
         lesson = self.curriculum[lesson_n]
         print(colored(f"Prepping lesson - {lesson.name}.", "yellow"))
         train_loader, test_loader = lesson.get_dataloaders()
         self.model.prep_lesson(lesson.name)
-        accuracy_threshold = lesson.accuracy_threshold
+        go_to_next_lesson = lesson.go_to_next_lesson
         self.refresh_optimizer()
-        return train_loader, test_loader, accuracy_threshold
+        return train_loader, test_loader, go_to_next_lesson
 
     def teach(self, max_epochs: int = -1) -> bool:
         lesson_n = 0
-        train_loader, test_loader, accuracy_threshold = self.prep_lesson(lesson_n)
+        train_loader, test_loader, go_to_next_lesson = self.prep_lesson(lesson_n)
 
-        n_consecutive_epochs = 0
         if max_epochs == -1:
             max_epochs = int('inf')
         for epoch in range(max_epochs):
@@ -120,17 +119,12 @@ class Teacher:
             train_loss = self.train(train_loader)
             test_accuracy = self.test(test_loader)
             print(f"Train Loss: {train_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
-            n_consecutive_epochs = (
-                n_consecutive_epochs + 1
-                if test_accuracy >= accuracy_threshold
-                else 0
-            )
-            if n_consecutive_epochs >= self.consecutive_epochs_threshold:
+            if go_to_next_lesson(train_loss, test_accuracy):
                 if lesson_n + 1 >= len(self.curriculum):
                     print("Training complete")
                     return True
                 lesson_n += 1
-                train_loader, test_loader, accuracy_threshold = self.prep_lesson(lesson_n)
+                train_loader, test_loader, go_to_next_lesson = self.prep_lesson(lesson_n)
 
         print("Reached max epochs without finishing training.")
         return False

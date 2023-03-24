@@ -4,6 +4,7 @@ from torchvision.datasets import QMNIST
 import torchvision.transforms as transforms
 
 from changeling.core.changeling import Changeling
+from changeling.core.learning_criteria import AccuracyThresholdAchieved
 from changeling.core.teacher import Teacher, Lesson
 
 
@@ -94,7 +95,7 @@ def main():
             get_dataloaders=lambda: get_dataloaders(
                 mnist_train, mnist_test, batch_size=128, n_labels=n
             ),
-            accuracy_threshold=0.95,
+            go_to_next_lesson=AccuracyThresholdAchieved(0.95),
         )
         for n in range(1, 11)
     ]

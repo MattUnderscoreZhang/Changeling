@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 from changeling.core.branch import Branch
 from changeling.core.changeling import Changeling
 from changeling.core.layers import ConcatInputLayer, MeanInputLayer
+from changeling.core.learning_criteria import AccuracyThresholdAchieved, NEpochsComplete
 from changeling.core.teacher import Teacher, Lesson
 
 
@@ -186,7 +187,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                accuracy_threshold=0.7,
+                go_to_next_lesson=NEpochsComplete(10),
             ),
             Lesson(
                 name=f"Dual Input - {labels}",
@@ -194,7 +195,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                accuracy_threshold=0.8,
+                go_to_next_lesson=NEpochsComplete(10),
             ),
             Lesson(
                 name=f"Color Input - {labels}",
@@ -202,7 +203,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                accuracy_threshold=0.8,
+                go_to_next_lesson=NEpochsComplete(10),
             ),
         ]
     ] + [
@@ -212,12 +213,12 @@ def main():
                 cifar_train, cifar_test, batch_size=128,
                 labels_to_include=labels,
             ),
-            accuracy_threshold=0.9,
+            go_to_next_lesson=AccuracyThresholdAchieved(0.9),
         )
         for labels in [list(range(0, 10))]
     ]
     teacher = Teacher(model, curriculum)
-    assert teacher.teach(max_epochs=100)
+    assert teacher.teach(max_epochs=10_000)
 
 if __name__ == "__main__":
     main()
