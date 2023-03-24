@@ -1,3 +1,4 @@
+import torch
 from torch import cuda, nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import CIFAR10
@@ -14,13 +15,11 @@ class CIFARSubset(Dataset):
         self,
         cifar_data: Dataset,
         labels_to_include: list[int],
-        labels_to_boost: list[int],
     ):
         self.data = [
             (img, label)
             for img, label in cifar_data
             if label in labels_to_include
-            for _ in range(1 + 4 * (label in labels_to_boost))
         ]
         self.grayscale_transform = transforms.Compose([
             transforms.Grayscale(),
@@ -41,17 +40,14 @@ def get_dataloaders(
     cifar_test: Dataset,
     batch_size: int,
     labels_to_include: list[int],
-    labels_to_boost: list[int],
 ) -> tuple[DataLoader, DataLoader]:
     cifar_cur_train = CIFARSubset(
         cifar_train,
         labels_to_include,
-        labels_to_boost,
     )
     cifar_cur_test = CIFARSubset(
         cifar_test,
         labels_to_include,
-        labels_to_boost,
     )
     train_loader = DataLoader(
         cifar_cur_train,
@@ -90,15 +86,19 @@ class MyModel(Changeling):
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Flatten(),
-            nn.Linear(8192, 1024),
             nn.ReLU(),
-            nn.Linear(1024, 512),
+            nn.Conv2d(128, 64, kernel_size=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, kernel_size=1),
+            nn.Flatten(),
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Linear(512, 128),
             nn.ReLU(),
         )
         self.output_branches = {
             i: Branch(
-                nn.Linear(512, 1)
+                nn.Linear(128, 1)
             )
             for i in range(10)
         }
@@ -114,8 +114,9 @@ class MyModel(Changeling):
         hidden_out = self.hidden_layers(sum_inputs)
         out_labels = [
             self.output_branches[i](hidden_out)
-            for i in range(10)
             if self.output_branches[i].active
+            else torch.zeros(hidden_out.shape[0], 1)
+            for i in range(10)
         ]
         return self.concat_layer(out_labels)
 
@@ -123,22 +124,20 @@ class MyModel(Changeling):
         if name.startswith("Grayscale Input"):
             self.input_branches["gray_branch"].activate()
             self.input_branches["color_branch"].deactivate()
-            n_labels = int(name.split(" ")[-2])
-            for i in range(10):
-                if i < n_labels:
-                    self.output_branches[i].activate()
-                else:
-                    self.output_branches[i].deactivate()
-        elif name == "Dual Input":
+        elif name.startswith("Dual Input"):
             self.input_branches["gray_branch"].activate()
             self.input_branches["color_branch"].activate()
-            for i in range(10):
-                self.output_branches[i].activate()
-        elif name == "Color Input":
+        elif name.startswith("Color Input"):
             self.input_branches["gray_branch"].deactivate()
             self.input_branches["color_branch"].activate()
-            for i in range(10):
-                self.output_branches[i].activate()
+        labels = [
+            int(i.strip())
+            for i in name.split("[")[1].split("]")[0].split(",")
+        ]
+        for i in range(10):
+            self.output_branches[i].deactivate()
+        for i in labels:
+            self.output_branches[i].activate()
 
 
 def main():
@@ -151,37 +150,47 @@ def main():
     cifar_test = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     model = MyModel()
+    curriculum_labels = [
+        list(range(0, 2)),
+        list(range(2, 4)),
+        list(range(0, 4)),
+        list(range(4, 6)),
+        list(range(0, 6)),
+        list(range(6, 8)),
+        list(range(0, 8)),
+        list(range(8, 10)),
+        list(range(0, 10)),
+    ]
     curriculum = [
-        Lesson(
-            name=f"Grayscale Input - {i} Labels",
-            get_dataloaders=lambda i=i: get_dataloaders(
-                cifar_train, cifar_test, batch_size=128,
-                labels_to_include=list(range(10))[:i],
-                labels_to_boost=list(range(10))[i-2:i],
+        lesson
+        for labels in curriculum_labels
+        for lesson in
+        [
+            Lesson(
+                name=f"Grayscale Input - {labels}",
+                get_dataloaders=lambda labels=labels: get_dataloaders(
+                    cifar_train, cifar_test, batch_size=128,
+                    labels_to_include=labels,
+                ),
+                accuracy_threshold=0.7,
             ),
-            accuracy_threshold=0.8,
-        )
-        for i in range(2, 11, 2)
-    ] + [
-        Lesson(
-            name="Dual Input",
-            get_dataloaders=lambda: get_dataloaders(
-                cifar_train, cifar_test, batch_size=128,
-                labels_to_include=list(range(10)),
-                labels_to_boost=[],
+            Lesson(
+                name=f"Dual Input - {labels}",
+                get_dataloaders=lambda: get_dataloaders(
+                    cifar_train, cifar_test, batch_size=128,
+                    labels_to_include=labels,
+                ),
+                accuracy_threshold=0.8,
             ),
-            accuracy_threshold=0.8,
-        )
-    ] + [
-        Lesson(
-            name="Color Input",
-            get_dataloaders=lambda: get_dataloaders(
-                cifar_train, cifar_test, batch_size=128,
-                labels_to_include=list(range(10)),
-                labels_to_boost=[],
+            Lesson(
+                name=f"Color Input - {labels}",
+                get_dataloaders=lambda: get_dataloaders(
+                    cifar_train, cifar_test, batch_size=128,
+                    labels_to_include=labels,
+                ),
+                accuracy_threshold=0.9,
             ),
-            accuracy_threshold=0.95,
-        )
+        ]
     ]
     teacher = Teacher(model, curriculum)
     assert teacher.teach(max_epochs=100)

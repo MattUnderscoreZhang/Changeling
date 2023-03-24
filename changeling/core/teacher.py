@@ -27,7 +27,6 @@ class Teacher:
         self.model = model
         self.model.to(self.device)
         self.curriculum = curriculum
-        self.optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
         self.loss_function = torch.nn.CrossEntropyLoss()
         self.consecutive_epochs_threshold = 3
 
@@ -69,12 +68,16 @@ class Teacher:
 
         return correct / total
 
+    def refresh_optimizer(self):
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
+
     def prep_lesson(self, lesson_n: int) -> tuple[DataLoader, DataLoader, float]:
         lesson = self.curriculum[lesson_n]
         print(f"Prepping lesson - {lesson.name}.")
         train_loader, test_loader = lesson.get_dataloaders()
         self.model.prep_lesson(lesson.name)
         accuracy_threshold = lesson.accuracy_threshold
+        self.refresh_optimizer()
         return train_loader, test_loader, accuracy_threshold
 
     def teach(self, max_epochs: int = -1) -> bool:
@@ -99,7 +102,7 @@ class Teacher:
                     print("Training complete")
                     return True
                 lesson_n += 1
-                train_loader, test_loader = self.prep_lesson(lesson_n)
+                train_loader, test_loader, accuracy_threshold = self.prep_lesson(lesson_n)
 
         print("Reached max epochs without finishing training.")
         return False
