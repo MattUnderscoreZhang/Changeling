@@ -83,7 +83,7 @@ class MyModel(Changeling):
             ),
         }
         self.mean_layer = MeanInputLayer()
-        self.hidden_layers = nn.Sequential(
+        self.hidden_layers = nn.Sequential(  # TODO: this architecture loses too much info
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
@@ -187,7 +187,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                go_to_next_lesson=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),
             ),
             Lesson(
                 name=f"Dual Input - {labels}",
@@ -195,7 +195,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                go_to_next_lesson=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),
             ),
             Lesson(
                 name=f"Color Input - {labels}",
@@ -203,7 +203,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                go_to_next_lesson=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),
             ),
         ]
     ] + [
@@ -213,7 +213,7 @@ def main():
                 cifar_train, cifar_test, batch_size=128,
                 labels_to_include=labels,
             ),
-            go_to_next_lesson=AccuracyThresholdAchieved(0.9),
+            lesson_complete=AccuracyThresholdAchieved(0.975),
         )
         for labels in [list(range(0, 10))]
     ]

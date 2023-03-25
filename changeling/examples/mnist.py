@@ -95,7 +95,7 @@ def main():
             get_dataloaders=lambda: get_dataloaders(
                 mnist_train, mnist_test, batch_size=128, n_labels=n
             ),
-            go_to_next_lesson=AccuracyThresholdAchieved(0.95),
+            lesson_complete=AccuracyThresholdAchieved(0.95),
         )
         for n in range(1, 11)
     ]

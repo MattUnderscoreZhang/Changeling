@@ -12,7 +12,7 @@ from changeling.core.changeling import Changeling
 class Lesson:
     name: str
     get_dataloaders: Callable[[], tuple[DataLoader, DataLoader]]
-    go_to_next_lesson: Callable[[float, float], bool]
+    lesson_complete: Callable[[float, float], bool]
 
 
 Curriculum = list[Lesson]
@@ -101,13 +101,13 @@ class Teacher:
         print(colored(f"Prepping lesson - {lesson.name}.", "yellow"))
         train_loader, test_loader = lesson.get_dataloaders()
         self.model.prep_lesson(lesson.name)
-        go_to_next_lesson = lesson.go_to_next_lesson
+        lesson_complete = lesson.lesson_complete
         self.refresh_optimizer()
-        return train_loader, test_loader, go_to_next_lesson
+        return train_loader, test_loader, lesson_complete
 
     def teach(self, max_epochs: int = -1) -> bool:
         lesson_n = 0
-        train_loader, test_loader, go_to_next_lesson = self.prep_lesson(lesson_n)
+        train_loader, test_loader, lesson_complete = self.prep_lesson(lesson_n)
 
         if max_epochs == -1:
             max_epochs = int('inf')
@@ -119,12 +119,12 @@ class Teacher:
             train_loss = self.train(train_loader)
             test_accuracy = self.test(test_loader)
             print(f"Train Loss: {train_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
-            if go_to_next_lesson(train_loss, test_accuracy):
+            if lesson_complete(train_loss, test_accuracy):
                 if lesson_n + 1 >= len(self.curriculum):
                     print("Training complete")
                     return True
                 lesson_n += 1
-                train_loader, test_loader, go_to_next_lesson = self.prep_lesson(lesson_n)
+                train_loader, test_loader, lesson_complete = self.prep_lesson(lesson_n)
 
         print("Reached max epochs without finishing training.")
         return False
