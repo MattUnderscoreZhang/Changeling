@@ -1,5 +1,5 @@
 import torch
-from torch import cuda, nn, Tensor, optim
+from torch import cuda, nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms

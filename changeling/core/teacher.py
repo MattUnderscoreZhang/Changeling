@@ -23,6 +23,7 @@ class Teacher:
         self,
         model: Changeling,
         curriculum: Curriculum,
+        debug_print: bool = False
     ):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -30,7 +31,7 @@ class Teacher:
         self.curriculum = curriculum
         self.loss_function = torch.nn.CrossEntropyLoss()
         self.consecutive_epochs_threshold = 3
-        self.debug_print = True
+        self.debug_print = debug_print
 
     def train(self, train_loader: DataLoader) -> float:
         self.model.train()
