@@ -82,6 +82,8 @@ class MyModel(Changeling):
                 nn.MaxPool2d(2)
             ),
         }
+        for name, branch in self.input_branches.items():
+            self.add_module(name, branch)
         self.mean_layer = MeanInputLayer()
         self.hidden_layers = nn.Sequential(  # TODO: this architecture loses too much info
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
@@ -103,6 +105,8 @@ class MyModel(Changeling):
             )
             for i in range(10)
         }
+        for num, branch in self.output_branches.items():
+            self.add_module(f"output_branch_{num}", branch)
         self.concat_layer = ConcatInputLayer()
         self.softmax_layer = nn.Softmax(dim=1)
         self.loss_function = nn.CrossEntropyLoss()
@@ -126,7 +130,10 @@ class MyModel(Changeling):
         return concat_out
 
     def prep_lesson(self, name: str) -> None:
-        if name.startswith("Grayscale Input"):
+        if name.startswith("Pretraining"):
+            self.input_branches["gray_branch"].activate()
+            self.input_branches["color_branch"].activate()
+        elif name.startswith("Grayscale Input"):
             self.input_branches["gray_branch"].activate()
             self.input_branches["gray_branch"].unfreeze()
             self.input_branches["color_branch"].deactivate()
@@ -165,18 +172,27 @@ def main():
     cifar_test = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     model = MyModel()
+    """
+    This curriculum doesn't really make sense, but it's being used here as an example.
+    """
     curriculum_labels = [
         list(range(0, 2)),
         list(range(2, 4)),
-        list(range(0, 4)),
         list(range(4, 6)),
-        list(range(0, 6)),
         list(range(6, 8)),
-        list(range(0, 8)),
         list(range(8, 10)),
-        list(range(0, 10)),
     ]
     curriculum = [
+        Lesson(
+            name=f"Pretraining - {labels}",
+            get_dataloaders=lambda labels=labels: get_dataloaders(
+                cifar_train, cifar_test, batch_size=64,
+                labels_to_include=labels,
+            ),
+            lesson_complete=NEpochsComplete(10),  # 10
+        )
+        for labels in [list(range(0, 10))]
+    ] + [
         lesson
         for labels in curriculum_labels
         for lesson in
@@ -187,7 +203,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                lesson_complete=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),  # 10
             ),
             Lesson(
                 name=f"Dual Input - {labels}",
@@ -195,7 +211,7 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                lesson_complete=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),  # 10
             ),
             Lesson(
                 name=f"Color Input - {labels}",
@@ -203,7 +219,15 @@ def main():
                     cifar_train, cifar_test, batch_size=128,
                     labels_to_include=labels,
                 ),
-                lesson_complete=NEpochsComplete(10),
+                lesson_complete=NEpochsComplete(10),  # 10
+            ),
+            Lesson(
+                name=f"Color Input - {list(range(10))}",
+                get_dataloaders=lambda: get_dataloaders(
+                    cifar_train, cifar_test, batch_size=128,
+                    labels_to_include=list(range(10)),
+                ),
+                lesson_complete=NEpochsComplete(4),  # 20
             ),
         ]
     ] + [
@@ -213,12 +237,12 @@ def main():
                 cifar_train, cifar_test, batch_size=128,
                 labels_to_include=labels,
             ),
-            lesson_complete=AccuracyThresholdAchieved(0.975),
+            lesson_complete=AccuracyThresholdAchieved(0.975),  # ?
         )
         for labels in [list(range(0, 10))]
     ]
-    teacher = Teacher(model, curriculum)
-    assert teacher.teach(max_epochs=10_000)
+    teacher = Teacher(model, curriculum, debug_print=True)
+    assert teacher.teach()
 
 if __name__ == "__main__":
     main()

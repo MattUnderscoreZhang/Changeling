@@ -76,7 +76,6 @@ class MyModel(Changeling):
             nn.Conv2d(8, 1, kernel_size=1),
             nn.Flatten(),
             nn.Linear(256, 10),
-            nn.Softmax(dim=1),
         )
         self.loss_function = torch.nn.CrossEntropyLoss()
 
