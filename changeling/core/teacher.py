@@ -48,6 +48,7 @@ class Teacher:
             loss = self.loss_function(outputs, labels)
             loss.backward()
             self.optimizer.step()
+
             running_loss += loss.item()
 
         return running_loss / len(train_loader)
@@ -106,13 +107,11 @@ class Teacher:
         self.refresh_optimizer()
         return train_loader, test_loader, lesson_complete
 
-    def teach(self, max_epochs: int = -1) -> bool:
-        lesson_n = 0
+    def teach_lesson(self, lesson_n: int) -> None:
         train_loader, test_loader, lesson_complete = self.prep_lesson(lesson_n)
 
-        if max_epochs == -1:
-            max_epochs = int('inf')
-        for epoch in range(max_epochs):
+        epoch = 0
+        while True:
             if self.debug_print:
                 print(f"Epoch {epoch}:")
             else:
@@ -121,11 +120,11 @@ class Teacher:
             test_accuracy = self.test(test_loader)
             print(f"Train Loss: {train_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
             if lesson_complete(train_loss, test_accuracy):
-                if lesson_n + 1 >= len(self.curriculum):
-                    print("Training complete")
-                    return True
-                lesson_n += 1
-                train_loader, test_loader, lesson_complete = self.prep_lesson(lesson_n)
+                return
+            epoch += 1
 
-        print("Reached max epochs without finishing training.")
-        return False
+    def teach(self) -> None:
+        for lesson_n in range(len(self.curriculum)):
+            self.teach_lesson(lesson_n)
+        print("Training complete")
+        return

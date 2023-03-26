@@ -14,10 +14,13 @@ def test_lesson():
         torch.randn(5, 3, 32, 32),
         torch.randint(0, 10, (5,))
     )
-    lesson_name = "Lesson 1"
-    lesson_complete = NEpochsComplete(3)
-    lesson = Lesson(lesson_name, lambda: (DataLoader(train_dataset), DataLoader(test_dataset)), lesson_complete)
-    assert lesson.name == lesson_name
+    lesson = Lesson(
+        name="Lesson 1",
+        get_dataloaders=lambda: (
+            DataLoader(train_dataset), DataLoader(test_dataset)
+        ),
+        lesson_complete=NEpochsComplete(3),
+    )
     train_loader, test_loader = lesson.get_dataloaders()
     assert isinstance(train_loader, DataLoader)
     assert isinstance(test_loader, DataLoader)
@@ -35,9 +38,6 @@ def test_curriculum():
         torch.randn(4, 3, 32, 32),
         torch.randint(0, 10, (4,))
     )
-    lesson_1_name = "Lesson 1"
-    lesson_1_complete = NEpochsComplete(2)
-    lesson_1 = Lesson(lesson_1_name, lambda: (DataLoader(train_dataset_1), DataLoader(test_dataset_1)), lesson_1_complete)
     train_dataset_2 = TensorDataset(
         torch.randn(5, 3, 32, 32),
         torch.randint(0, 10, (5,))
@@ -46,11 +46,21 @@ def test_curriculum():
         torch.randn(2, 3, 32, 32),
         torch.randint(0, 10, (2,))
     )
-    lesson_2_name = "Lesson 2"
-    lesson_2_complete = NEpochsComplete(1)
-    lesson_2 = Lesson(lesson_2_name, lambda: (DataLoader(train_dataset_2), DataLoader(test_dataset_2)), lesson_2_complete)
-
+    lesson_1 = Lesson(
+        name="Lesson 1",
+        get_dataloaders=lambda: (
+            DataLoader(train_dataset_1), DataLoader(test_dataset_1)
+        ),
+        lesson_complete=NEpochsComplete(3),
+    )
+    lesson_2 = Lesson(
+        name="Lesson 2",
+        get_dataloaders=lambda: (
+            DataLoader(train_dataset_2), DataLoader(test_dataset_2)
+        ),
+        lesson_complete=NEpochsComplete(1),
+    )
     curriculum = [lesson_1, lesson_2]
     assert len(curriculum) == 2
-    assert curriculum[0].name == lesson_1_name
-    assert curriculum[1].name == lesson_2_name
+    assert curriculum[0].name == "Lesson 1"
+    assert curriculum[1].name == "Lesson 2"

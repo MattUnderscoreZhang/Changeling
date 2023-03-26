@@ -7,14 +7,13 @@ class Branch(nn.Sequential):
         super().__init__(*args)
 
         # Apply Xavier initialization
-        for module in [m for m in self if self._is_supported_layer(m)]:
+        for i, module in enumerate([m for m in self if self._is_supported_layer(m)]):
             assert isinstance(module.weight, torch.Tensor)
             assert isinstance(module.bias, torch.Tensor)
             nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
 
-        self.active = True
         self.activate()
         self.unfreeze()
 
