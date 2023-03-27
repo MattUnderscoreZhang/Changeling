@@ -101,7 +101,7 @@ class MyModel(Changeling):
         return nn.CrossEntropyLoss(outputs, labels)
 ```
 
-Once the neural net is defined, you can create a training `Curriculum` and use the `Teacher` class to train and evaluate the net. The `Teacher` expects a list of `Lesson` objects, each specifying the training data, lesson name, and lesson completion criteria. The `Teacher` will use the `lesson_complete` criteria to determine when to move on to the next lesson in the curriculum.
+Once the neural net is defined, you can create a training curriculum and use the `Teacher` class to train and evaluate the net. The `Teacher` expects a list of `Lesson` objects, each specifying the training data, lesson name, and lesson completion criteria. The `Teacher` will use the `lesson_complete` criteria to determine when to move on to the next lesson in the curriculum.
 
 ```
 from torch.utils.data import DataLoader
